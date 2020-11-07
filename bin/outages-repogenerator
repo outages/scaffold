@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+import argparse
+import os
+from datetime import datetime
+from string import Template
+
+readme = Template("""# ➤ $repo_name
+This is an *unofficial* repository that provides a Git history of outages at [$service_name]($service_url), a
+$service_type.
+
+## How to use
+
+- Visit the [history for the `$file_name`](https://github.com/outages/$repo_name/commits/main/$file_name) file.
+
+## Credits
+
+Data is probably owned by $service_name and whatnot. Any code portions are copyright (c) $year the Outages Project
+at https://github.com/outages and licensed under the terms of the MIT License.
+
+The [Outages Project](https://github.com/outages) ~~inspired by~~ copied from [Simon Willison's project tracking
+Californian Fires](https://simonwillison.net/2020/Oct/9/git-scraping/). Simon has a good writeup on how he built
+that project on [his blog](https://simonwillison.net/2020/Oct/9/git-scraping/) and there is a broader discussion of
+the topic on [Hacker News](https://news.ycombinator.com/item?id=24732943) if you want more background.
+
+""")
+
+action = Template("""---
+name: Fetch latest $service_name outages data
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: "1,16,31,46 * * * *"
+
+jobs:
+  scheduled:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetches repo
+        uses: actions/checkout@v2
+      - name: Get and format api
+        run: |-
+          curl $json_url | jq . > $file_name
+      - name: Add results to repo
+        run: |-
+          git config user.name "Outages Project Worker"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A *.json
+          timestamp=$(date -u -Is)
+          git commit -m "Update outages data on ${timestamp}" || exit 0
+          git push
+
+""")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="""Generate a new repository for the Outages Project"""
+    )
+    parser.add_argument(
+        "-n",
+        "--service-name",
+        required=False,
+        help="Service name, one word (e.g. AWS)"
+    )
+    parser.add_argument(
+        "-t",
+        "--service-type",
+        required=False,
+        help="Service type, brief (e.g. cloud computing platform)"
+    )
+    parser.add_argument(
+        "-u",
+        "--service-url",
+        required=False,
+        help="Service url (e.g. https://aws.amazon.com)"
+    )
+    parser.add_argument(
+        "-j",
+        "--json-url",
+        required=False,
+        help="JSON url to parse (e.g. https://status.aws.amazon.com/data.json)"
+    )
+
+    args = parser.parse_args()
+
+    if args.service_name is None:
+        service_name = input("Service name, one word (e.g. AWS)> ")
+    else:
+        service_name = args.service_name
+
+    if args.service_type is None:
+        service_type = input("Service type, brief (e.g. cloud computing platform)> ")
+    else:
+        service_type = args.service_type
+
+    if args.service_url is None:
+        service_url = input("Service homepage (e.g. https://aws.amazon.com)> ")
+    else:
+        service_url = args.service_url
+
+    if args.json_url is None:
+        json_url = input("JSON url to parse (e.g. https://status.aws.amazon.com/data.json)> ")
+    else:
+        json_url = args.json_url
+
+    repo_name = f"{service_name}-outages"
+    file_name = f"{service_name}_outages.json"
+    year = str(datetime.now().year)
+
+    # Create directory
+    try:
+        os.mkdir(repo_name)
+    except OSError:
+        print(f"Creation of the directory {repo_name} failed")
+        return -1
+    else:
+        print(f"Created the directory {repo_name}")
+
+    # Create README
+    readme_str = readme.safe_substitute({
+        "service_name": service_name,
+        "service_type": service_type,
+        "service_url": service_url,
+        "repo_name": repo_name,
+        "file_name": file_name,
+        "year": year
+    })
+    with open(f"{repo_name}/README.md", "w") as f:
+        f.write(readme_str)
+        print(f"Created {repo_name}/README.md")
+
+    # Create GitHub actions dir
+    try:
+        os.mkdir(f"{repo_name}/.github")
+        os.mkdir(f"{repo_name}/.github/workflows")
+    except OSError:
+        print(f"Creation of the directory {repo_name}/.github/workflows failed")
+        return -1
+    else:
+        print(f"Created the directory {repo_name}/.github/workflows")
+
+    # Create GitHub action
+    action_str = action.safe_substitute({
+        "service_name": service_name,
+        "json_url": json_url,
+        "file_name": file_name
+    })
+    with open(f"{repo_name}/.github/workflows/scrape.yml", "w") as f:
+        f.write(action_str)
+        print(f"Created {repo_name}/.github/workflows/scrape.yml")
+
+
+if __name__ == "__main__":
+    main()
