@@ -104,8 +104,8 @@ def main():
     else:
         json_url = args.json_url
 
-    repo_name = f"{service_name}-outages"
-    file_name = f"{service_name}_outages.json"
+    repo_name = f"{service_name.lower()}-outages"
+    file_name = f"{service_name.lower()}_outages_v1.json"
     year = str(datetime.now().year)
 
     # Create directory
