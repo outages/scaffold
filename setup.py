@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="outages-scaffold",
-    version="0.0.1",
+    version="0.0.2",
     author="Marco Lussetti and the Outages Project",
     author_email="packages@marcolussetti.com",
     description="Generate a standard Outages Project repository.",
@@ -18,10 +18,7 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
-    scripts=[
-        'bin/outages-scaffold'
-    ],
-    install_requires=[
-    ]
+    python_requires=">=3.6",
+    scripts=["bin/outages-scaffold"],
+    install_requires=[],
 )
